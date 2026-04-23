@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: GPL-2.0
+
+config MTHP_BESTFIT
+	tristate "VMA-size best-fit mTHP order selection (Android vendor hook)"
+	depends on TRANSPARENT_HUGEPAGE
+	depends on ANDROID_VENDOR_HOOKS
+	default m
+	help
+	  Loadable module that attaches to android_vh_thp_vma_allowable_orders
+	  and caps the allowable mTHP order bitmask based on the faulting
+	  VMA's size, min_pages configuration, and a contPTE bias policy.
+
+	  ZERO changes to mm/memory.c or any GKI-locked file. The vendor
+	  hook is stable across Android kernel releases (added in
+	  android15-6.6, present in later branches including 6.12).
+
+	    insmod: hook attached, faults get VMA-size filtering
+	    rmmod:  hook removed, vanilla behavior restored
+
+	  Runtime tunables:
+	    /proc/sys/vm/mthp_bestfit/{enabled,min_pages,contpte_bias}
+	    /sys/kernel/debug/mthp_bestfit/{stats,live,enabled}
+
+	  If unsure, say M.

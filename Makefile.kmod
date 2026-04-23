@@ -1,0 +1,31 @@
+# SPDX-License-Identifier: GPL-2.0
+#
+# Kbuild for mthp_bestfit.ko
+#
+# Out-of-tree build:
+#   make -C $KERNEL_SRC M=$PWD modules
+#
+# Kleaf / Bazel (Android GKI):
+#   Drop this directory under drivers/mthp/ and add to a kernel_module
+#   Bazel target. Ensure include/trace/hooks/mm.h on the kernel tree
+#   contains the DECLARE_HOOK for android_vh_thp_vma_allowable_orders.
+
+obj-$(CONFIG_MTHP_BESTFIT) += mthp_bestfit.o
+
+# For standalone `make`:
+ifneq ($(KERNELRELEASE),)
+  # kbuild invocation
+  obj-m := mthp_bestfit.o
+else
+  KERNEL_SRC ?= /lib/modules/$(shell uname -r)/build
+  PWD := $(shell pwd)
+
+default:
+	$(MAKE) -C $(KERNEL_SRC) M=$(PWD) modules
+
+clean:
+	$(MAKE) -C $(KERNEL_SRC) M=$(PWD) clean
+
+modules_install:
+	$(MAKE) -C $(KERNEL_SRC) M=$(PWD) modules_install
+endif
