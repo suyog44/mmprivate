@@ -2,21 +2,39 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Tux & The mTHP Disaster — A 7-Scene Story</title>
+<title>Tux & The mTHP Disaster</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
-  body {
-    font-family: 'Segoe UI', system-ui, sans-serif;
+  html, body {
+    height: 100%;
     background: #1a1a2e;
+    font-family: 'Segoe UI', system-ui, sans-serif;
     overflow: hidden;
-    height: 100vh;
-    width: 100vw;
+  }
+
+  body {
     display: flex;
     align-items: center;
     justify-content: center;
   }
 
+  /* ============================================================
+     LAYOUT REGIONS — fixed zones, no overlap
+     ┌─────────────────────────────────────────────┐
+     │ TOP BAR  (60px)  scene num | overlay text   │
+     ├─────────────────────────────────────────────┤
+     │                                             │
+     │           CANVAS (520px)                    │
+     │           main animation area               │
+     │                                             │
+     ├─────────────────────────────────────────────┤
+     │ CAPTION BAR (80px)                          │
+     ├─────────────────────────────────────────────┤
+     │ CONTROLS (60px)                             │
+     └─────────────────────────────────────────────┘
+     Total: 720px
+     ============================================================ */
   .stage {
     position: relative;
     width: 1280px;
@@ -25,116 +43,138 @@
     border-radius: 16px;
     overflow: hidden;
     box-shadow: 0 16px 60px rgba(0,0,0,0.4);
+    display: grid;
+    grid-template-rows: 60px 1fr 80px 60px;
   }
 
+  .top-bar {
+    background: rgba(0,0,0,0.85);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    z-index: 100;
+  }
+
+  .scene-num {
+    font-size: 13px;
+    font-weight: 700;
+    background: #00b894;
+    padding: 6px 14px;
+    border-radius: 20px;
+  }
+
+  .overlay-text {
+    font-family: 'Consolas', monospace;
+    font-size: 13px;
+    color: #00d8a6;
+    background: rgba(255,255,255,0.05);
+    padding: 6px 14px;
+    border-radius: 4px;
+    border-left: 3px solid #00d8a6;
+  }
+
+  .canvas-area {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .caption-bar {
+    background: #2c3e50;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 30px;
+    text-align: center;
+    font-size: 18px;
+    font-weight: 500;
+    z-index: 100;
+  }
+
+  .controls {
+    background: #1a1a2e;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    z-index: 100;
+  }
+
+  .controls button {
+    background: #fff;
+    border: none;
+    padding: 8px 18px;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    color: #2c3e50;
+    font-size: 14px;
+  }
+
+  .controls button:hover { background: #00b894; color: #fff; }
+
+  .progress {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 4px;
+    background: #00b894;
+    width: 0%;
+    transition: width 0.5s linear;
+    z-index: 200;
+  }
+
+  /* Scenes inside canvas-area */
   .scene {
     position: absolute;
     inset: 0;
     opacity: 0;
-    transition: opacity 0.8s ease;
+    transition: opacity 0.6s ease;
     pointer-events: none;
   }
 
   .scene.active { opacity: 1; pointer-events: auto; }
 
-  /* ── Common UI ── */
-  .scene-num {
-    position: absolute;
-    top: 24px;
-    left: 24px;
-    background: rgba(0,0,0,0.7);
-    color: #fff;
-    padding: 6px 14px;
-    border-radius: 20px;
-    font-size: 13px;
-    font-weight: 600;
-    z-index: 10;
-  }
-
-  .caption {
-    position: absolute;
-    bottom: 30px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(0,0,0,0.85);
-    color: #fff;
-    padding: 12px 28px;
-    border-radius: 8px;
-    font-size: 18px;
-    font-weight: 500;
-    max-width: 80%;
-    text-align: center;
-    z-index: 10;
-  }
-
-  .overlay-text {
-    position: absolute;
-    top: 80px;
-    right: 30px;
-    background: rgba(255,255,255,0.95);
-    color: #2c3e50;
-    padding: 10px 16px;
-    border-radius: 6px;
-    font-family: 'Consolas', monospace;
-    font-size: 13px;
-    border-left: 4px solid #00b894;
-    z-index: 10;
-  }
-
-  /* Tux base */
+  /* ── Common Tux ── */
   .tux {
     position: absolute;
     width: 80px;
     height: 100px;
     z-index: 5;
-  }
-
-  .tux::before {
-    content: '🐧';
-    font-size: 80px;
-    position: absolute;
-    inset: 0;
     display: flex;
     align-items: center;
     justify-content: center;
+    font-size: 80px;
   }
 
+  /* ── Speech bubbles (constrained) ── */
   .speech {
     position: absolute;
     background: #fff;
     border: 2px solid #2c3e50;
     border-radius: 12px;
     padding: 8px 14px;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 500;
     color: #2c3e50;
-    max-width: 220px;
-  }
-
-  .speech::after {
-    content: '';
-    position: absolute;
-    bottom: -10px;
-    left: 30px;
-    width: 0;
-    height: 0;
-    border: 10px solid transparent;
-    border-top-color: #2c3e50;
+    max-width: 200px;
+    z-index: 8;
+    line-height: 1.3;
   }
 
   /* ════════════════════════════════════════════════════════════════════ */
   /* SCENE 1 — App Launches                                                */
   /* ════════════════════════════════════════════════════════════════════ */
-  #scene1 {
-    background: linear-gradient(180deg, #2c3e50 0%, #4a5f7e 60%, #FFF8EE 60%);
-  }
+  #scene1 { background: linear-gradient(180deg, #2c3e50 0%, #4a5f7e 50%, #FFF8EE 50%); }
 
-  .skyline {
+  #scene1 .skyline {
     position: absolute;
-    bottom: 40%;
+    top: 100px;
     left: 0;
     right: 0;
-    height: 100px;
+    height: 80px;
     background: #1a2434;
     clip-path: polygon(
       0 100%, 0 60%, 5% 60%, 5% 30%, 12% 30%, 12% 50%, 18% 50%,
@@ -148,7 +188,7 @@
   #scene1 .desk {
     position: absolute;
     left: 100px;
-    bottom: 100px;
+    bottom: 80px;
     width: 280px;
     height: 30px;
     background: #8b6f47;
@@ -158,16 +198,32 @@
   #scene1 .desk-label {
     position: absolute;
     left: 130px;
-    bottom: 60px;
-    font-size: 14px;
-    font-weight: 600;
+    bottom: 50px;
+    font-size: 13px;
+    font-weight: 700;
     color: #34495e;
+    background: #fff;
+    padding: 4px 10px;
+    border-radius: 4px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
   }
 
   #scene1 .tux-1 {
     left: 200px;
-    bottom: 130px;
+    bottom: 110px;
     animation: tuxBob 1.5s ease-in-out infinite;
+  }
+
+  #scene1 .tux-1::before { content: '🐧'; }
+
+  #scene1 .speech-tux {
+    left: 290px;
+    bottom: 200px;
+  }
+
+  @keyframes tuxBob {
+    0%, 100% { transform: translateY(0); }
+    50%      { transform: translateY(-6px); }
   }
 
   #scene1 .app {
@@ -178,38 +234,33 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 30px;
+    font-size: 28px;
     box-shadow: 0 4px 8px rgba(0,0,0,0.2);
     animation: flyToTux 4s ease-in infinite;
   }
 
   #scene1 .app.a1 { background: #ff7675; animation-delay: 0s;   top: 200px; }
-  #scene1 .app.a2 { background: #74b9ff; animation-delay: 0.6s; top: 280px; }
-  #scene1 .app.a3 { background: #fdcb6e; animation-delay: 1.2s; top: 360px; }
-  #scene1 .app.a4 { background: #55efc4; animation-delay: 1.8s; top: 440px; }
-  #scene1 .app.a5 { background: #a29bfe; animation-delay: 2.4s; top: 240px; }
+  #scene1 .app.a2 { background: #74b9ff; animation-delay: 0.6s; top: 270px; }
+  #scene1 .app.a3 { background: #fdcb6e; animation-delay: 1.2s; top: 340px; }
+  #scene1 .app.a4 { background: #55efc4; animation-delay: 1.8s; top: 400px; }
+  #scene1 .app.a5 { background: #a29bfe; animation-delay: 2.4s; top: 230px; }
 
   @keyframes flyToTux {
     0%   { right: -80px; opacity: 0; }
     20%  { opacity: 1; }
-    80%  { right: 900px; opacity: 1; transform: scale(0.8); }
+    80%  { right: 900px; opacity: 1; transform: scale(0.7); }
     100% { right: 900px; opacity: 0; transform: scale(0.5); }
   }
 
-  @keyframes tuxBob {
-    0%, 100% { transform: translateY(0); }
-    50%      { transform: translateY(-8px); }
-  }
-
-  #scene1 .app-cry {
+  #scene1 .demand {
     position: absolute;
-    top: 320px;
-    right: 120px;
+    top: 200px;
+    right: 60px;
     background: #fff;
-    border: 2px solid #d63031;
+    border: 3px solid #d63031;
     border-radius: 12px;
-    padding: 10px 18px;
-    font-size: 16px;
+    padding: 14px 22px;
+    font-size: 18px;
     font-weight: 700;
     color: #d63031;
     animation: pulseRed 1s ease-in-out infinite;
@@ -217,63 +268,17 @@
 
   @keyframes pulseRed {
     0%, 100% { transform: scale(1); }
-    50%      { transform: scale(1.08); }
+    50%      { transform: scale(1.05); }
   }
 
   /* ════════════════════════════════════════════════════════════════════ */
-  /* SCENE 2 — Tux Picks the Biggest Box                                  */
+  /* SCENE 2 — Tux picks biggest box                                       */
   /* ════════════════════════════════════════════════════════════════════ */
-  #scene2 {
-    background: linear-gradient(180deg, #ecf0f1 0%, #bdc3c7 100%);
-  }
-
-  #scene2 .shelf {
-    position: absolute;
-    bottom: 100px;
-    left: 80px;
-    right: 80px;
-    height: 280px;
-    display: flex;
-    align-items: flex-end;
-    gap: 16px;
-    justify-content: center;
-  }
-
-  #scene2 .box {
-    background: linear-gradient(180deg, #ffeaa7 0%, #fdcb6e 100%);
-    border: 2px solid #e17055;
-    border-radius: 6px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 700;
-    color: #2d3436;
-    font-size: 13px;
-    flex-direction: column;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-  }
-
-  #scene2 .box[data-size="16"]   { width: 60px;  height: 60px; }
-  #scene2 .box[data-size="32"]   { width: 70px;  height: 70px; background: linear-gradient(180deg, #55efc4 0%, #00b894 100%); }
-  #scene2 .box[data-size="64"]   { width: 90px;  height: 90px; }
-  #scene2 .box[data-size="128"]  { width: 110px; height: 110px; }
-  #scene2 .box[data-size="256"]  { width: 130px; height: 130px; }
-  #scene2 .box[data-size="512"]  { width: 150px; height: 150px; }
-  #scene2 .box[data-size="1MB"]  { width: 170px; height: 170px; }
-  #scene2 .box[data-size="2MB"]  { width: 190px; height: 190px; background: linear-gradient(180deg, #fab1a0 0%, #e17055 100%); }
-
-  #scene2 .box[data-size="32"]::after {
-    content: '✓ just right';
-    position: absolute;
-    bottom: -25px;
-    font-size: 11px;
-    color: #00b894;
-    font-weight: 700;
-  }
+  #scene2 { background: linear-gradient(180deg, #ecf0f1 0%, #bdc3c7 100%); }
 
   #scene2 .request {
     position: absolute;
-    top: 80px;
+    top: 30px;
     left: 50%;
     transform: translateX(-50%);
     background: #74b9ff;
@@ -284,6 +289,7 @@
     font-weight: 700;
     box-shadow: 0 4px 12px rgba(116,185,255,0.5);
     animation: requestPulse 2s ease-in-out infinite;
+    z-index: 10;
   }
 
   @keyframes requestPulse {
@@ -291,65 +297,126 @@
     50%      { transform: translateX(-50%) scale(1.05); }
   }
 
-  #scene2 .tux-2 {
-    bottom: 100px;
+  #scene2 .shelf {
+    position: absolute;
+    bottom: 30px;
+    left: 40px;
+    right: 40px;
+    height: 220px;
+    display: flex;
+    align-items: flex-end;
+    gap: 12px;
+    justify-content: center;
+  }
+
+  #scene2 .box {
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    color: #2d3436;
+    font-size: 12px;
+    border: 2px solid #e17055;
+    background: linear-gradient(180deg, #ffeaa7 0%, #fdcb6e 100%);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    position: relative;
+  }
+
+  #scene2 .box[data-size="16"]   { width: 50px;  height: 50px; }
+  #scene2 .box[data-size="32"]   { width: 60px;  height: 60px; background: linear-gradient(180deg, #55efc4 0%, #00b894 100%); border-color: #00b894; }
+  #scene2 .box[data-size="64"]   { width: 75px;  height: 75px; }
+  #scene2 .box[data-size="128"]  { width: 95px;  height: 95px; }
+  #scene2 .box[data-size="256"]  { width: 110px; height: 110px; }
+  #scene2 .box[data-size="512"]  { width: 130px; height: 130px; }
+  #scene2 .box[data-size="1MB"]  { width: 150px; height: 150px; }
+  #scene2 .box[data-size="2MB"]  { width: 170px; height: 170px; background: linear-gradient(180deg, #fab1a0 0%, #e17055 100%); }
+
+  #scene2 .box[data-size="32"]::after {
+    content: '✓ just right';
+    position: absolute;
+    bottom: -22px;
     left: 50%;
     transform: translateX(-50%);
-    animation: walkToWrong 6s ease-in-out infinite;
-    z-index: 6;
+    font-size: 11px;
+    color: #00b894;
+    font-weight: 700;
+    white-space: nowrap;
   }
+
+  #scene2 .tux-2 {
+    bottom: 30px;
+    z-index: 6;
+    animation: walkToWrong 6s ease-in-out infinite;
+  }
+
+  #scene2 .tux-2::before { content: '🐧'; }
 
   @keyframes walkToWrong {
-    0%, 20%   { left: 30%; }
-    50%, 70%  { left: 65%; }
-    100%      { left: 65%; }
+    0%, 25%   { left: 25%; }
+    65%, 100% { left: 70%; }
   }
 
-  #scene2 .arrow-wrong {
-    position: absolute;
-    top: 200px;
-    left: 64%;
-    font-size: 40px;
-    color: #d63031;
-    font-weight: bold;
+  #scene2 .speech-tux {
+    top: 130px;
+    right: 100px;
     opacity: 0;
-    animation: fadeInLate 6s ease-in infinite;
+    animation: appearAfter 6s ease-in infinite;
   }
 
-  @keyframes fadeInLate {
-    0%, 60%  { opacity: 0; }
-    70%, 100% { opacity: 1; }
+  @keyframes appearAfter {
+    0%, 50%  { opacity: 0; }
+    65%, 100% { opacity: 1; }
   }
 
   #scene2 .waste-callout {
     position: absolute;
-    top: 250px;
-    right: 100px;
-    background: #fff;
-    border: 2px solid #d63031;
-    border-radius: 8px;
-    padding: 10px 14px;
-    color: #d63031;
+    top: 100px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #d63031;
+    color: white;
+    padding: 8px 16px;
+    border-radius: 6px;
     font-weight: 700;
-    font-size: 14px;
+    font-size: 13px;
     opacity: 0;
-    animation: fadeInLate 6s ease-in infinite;
+    animation: appearAfter 6s ease-in infinite;
   }
 
   /* ════════════════════════════════════════════════════════════════════ */
-  /* SCENE 3 — The Partial Unmap Disaster                                 */
+  /* SCENE 3 — Partial Unmap Disaster                                     */
   /* ════════════════════════════════════════════════════════════════════ */
-  #scene3 {
-    background: linear-gradient(180deg, #f5cba7 0%, #e8a87c 100%);
+  #scene3 { background: linear-gradient(180deg, #f5cba7 0%, #e8a87c 100%); }
+
+  #scene3 .stuck-label {
+    position: absolute;
+    top: 40px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #d63031;
+    color: white;
+    padding: 10px 24px;
+    border-radius: 20px;
+    font-weight: 700;
+    font-size: 16px;
+    animation: shake 0.5s ease-in-out infinite;
+    z-index: 10;
+  }
+
+  @keyframes shake {
+    0%, 100% { transform: translateX(-50%) rotate(0deg); }
+    25%      { transform: translateX(-50%) rotate(-2deg); }
+    75%      { transform: translateX(-50%) rotate(2deg); }
   }
 
   #scene3 .broken-folio {
     position: absolute;
-    top: 200px;
+    top: 130px;
     left: 50%;
     transform: translateX(-50%);
-    width: 400px;
-    height: 200px;
+    width: 480px;
+    height: 220px;
     display: flex;
   }
 
@@ -361,7 +428,7 @@
     justify-content: center;
     font-weight: 700;
     color: #2d3436;
-    font-size: 16px;
+    font-size: 18px;
   }
 
   #scene3 .folio-half.left {
@@ -378,7 +445,7 @@
 
   @keyframes spillOut {
     0%, 100% { transform: translateX(0) rotate(0deg); opacity: 1; }
-    50%      { transform: translateX(-20px) rotate(-5deg); opacity: 0.7; }
+    50%      { transform: translateX(-15px) rotate(-3deg); opacity: 0.7; }
   }
 
   #scene3 .folio-half.right {
@@ -386,85 +453,65 @@
     color: white;
   }
 
-  #scene3 .stuck-label {
-    position: absolute;
-    top: 180px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: #d63031;
-    color: white;
-    padding: 8px 20px;
-    border-radius: 20px;
-    font-weight: 700;
-    font-size: 14px;
-    animation: shake 0.5s ease-in-out infinite;
-  }
-
-  @keyframes shake {
-    0%, 100% { transform: translateX(-50%) rotate(0deg); }
-    25%      { transform: translateX(-50%) rotate(-2deg); }
-    75%      { transform: translateX(-50%) rotate(2deg); }
-  }
-
   #scene3 .tux-3 {
-    bottom: 80px;
-    left: 100px;
+    bottom: 30px;
+    left: 80px;
   }
 
-  #scene3 .tux-3::before {
-    content: '😰';
+  #scene3 .tux-3::before { content: '😰'; }
+
+  #scene3 .speech-tux {
+    bottom: 100px;
+    left: 170px;
   }
 
-  #scene3 .app-bubble {
-    position: absolute;
-    top: 250px;
-    right: 100px;
+  #scene3 .speech-app {
+    bottom: 100px;
+    right: 80px;
     background: #fff;
     border: 2px solid #2c3e50;
     border-radius: 12px;
     padding: 10px 16px;
-    font-size: 14px;
+    font-size: 13px;
     color: #2c3e50;
     max-width: 200px;
     font-weight: 500;
+    position: absolute;
   }
 
   /* ════════════════════════════════════════════════════════════════════ */
-  /* SCENE 4 — The Queue of Doom                                          */
+  /* SCENE 4 — Queue of Doom                                              */
   /* ════════════════════════════════════════════════════════════════════ */
-  #scene4 {
-    background: linear-gradient(180deg, #2d3436 0%, #1a1a2e 100%);
-  }
+  #scene4 { background: linear-gradient(180deg, #2d3436 0%, #1a1a2e 100%); }
 
   #scene4 .corridor {
     position: absolute;
     bottom: 0;
     left: 0;
     right: 0;
-    height: 250px;
+    height: 200px;
     background: linear-gradient(180deg, #34495e 0%, #2c3e50 100%);
-    perspective: 800px;
   }
 
   #scene4 .conveyor {
     position: absolute;
-    bottom: 100px;
+    bottom: 80px;
     left: 0;
     right: 0;
-    height: 80px;
+    height: 50px;
     background: repeating-linear-gradient(
       90deg,
       #1a1a2e 0px,
-      #1a1a2e 30px,
-      #34495e 30px,
-      #34495e 60px
+      #1a1a2e 24px,
+      #34495e 24px,
+      #34495e 48px
     );
     animation: conveyorMove 1s linear infinite;
   }
 
   @keyframes conveyorMove {
     0%   { background-position: 0 0; }
-    100% { background-position: 60px 0; }
+    100% { background-position: 48px 0; }
   }
 
   #scene4 .stuck-box {
@@ -476,27 +523,28 @@
     border-radius: 6px;
     font-weight: 700;
     font-size: 12px;
-    border: 2px solid #d63031;
+    border: 2px solid #ffffff;
     animation: slideAlongBelt 6s linear infinite;
     box-shadow: 0 0 20px rgba(255,118,117,0.5);
   }
 
-  #scene4 .stuck-box.s1 { animation-delay: 0s;   }
-  #scene4 .stuck-box.s2 { animation-delay: 1s;   }
-  #scene4 .stuck-box.s3 { animation-delay: 2s;   }
-  #scene4 .stuck-box.s4 { animation-delay: 3s;   }
-  #scene4 .stuck-box.s5 { animation-delay: 4s;   }
-  #scene4 .stuck-box.s6 { animation-delay: 5s;   }
+  #scene4 .stuck-box.s1 { animation-delay: 0s; }
+  #scene4 .stuck-box.s2 { animation-delay: 1s; }
+  #scene4 .stuck-box.s3 { animation-delay: 2s; }
+  #scene4 .stuck-box.s4 { animation-delay: 3s; }
+  #scene4 .stuck-box.s5 { animation-delay: 4s; }
+  #scene4 .stuck-box.s6 { animation-delay: 5s; }
 
   @keyframes slideAlongBelt {
     0%   { left: -100px; }
-    100% { left: 1380px; }
+    100% { left: 1300px; }
   }
 
   #scene4 .tux-4 {
     bottom: 130px;
-    left: 200px;
+    left: 100px;
     animation: tuxFlail 0.3s ease-in-out infinite;
+    z-index: 7;
   }
 
   #scene4 .tux-4::before { content: '😱'; }
@@ -506,14 +554,22 @@
     50%      { transform: rotate(5deg); }
   }
 
+  #scene4 .speech-tux {
+    bottom: 220px;
+    left: 80px;
+    background: #fff;
+    color: #d63031;
+    border-color: #d63031;
+  }
+
   #scene4 .scoreboard {
     position: absolute;
-    top: 80px;
-    right: 50px;
+    top: 30px;
+    right: 30px;
     background: #000;
     border: 3px solid #ffd93d;
     border-radius: 12px;
-    padding: 20px 30px;
+    padding: 16px 24px;
     font-family: 'Courier New', monospace;
     color: #ffd93d;
     font-weight: 700;
@@ -522,25 +578,25 @@
 
   #scene4 .scoreboard h3 {
     color: #ffd93d;
-    font-size: 14px;
-    margin-bottom: 12px;
+    font-size: 13px;
+    margin-bottom: 10px;
     border-bottom: 1px solid #ffd93d;
-    padding-bottom: 8px;
+    padding-bottom: 6px;
   }
 
   #scene4 .scoreboard .stat {
     font-size: 22px;
-    margin: 6px 0;
+    margin: 4px 0;
     text-shadow: 0 0 8px rgba(255,217,61,0.8);
   }
 
   #scene4 .scoreboard .stat-label {
-    font-size: 11px;
+    font-size: 10px;
     color: #95a5a6;
   }
 
   /* ════════════════════════════════════════════════════════════════════ */
-  /* SCENE 5 — The Shrinker Wakes Up Too Late                             */
+  /* SCENE 5 — Shrinker wakes up                                          */
   /* ════════════════════════════════════════════════════════════════════ */
   #scene5 {
     background: linear-gradient(180deg, #6c0e0e 0%, #2d0a0a 100%);
@@ -554,30 +610,24 @@
 
   #scene5 .robot {
     position: absolute;
-    top: 200px;
-    left: 100px;
-    width: 80px;
-    height: 80px;
-    background: #95a5a6;
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 50px;
+    top: 130px;
+    left: 80px;
+    font-size: 60px;
     animation: hammer 0.4s ease-in-out infinite;
+    z-index: 6;
   }
 
   #scene5 .robot::before { content: '🤖'; }
 
   #scene5 .robot-label {
     position: absolute;
-    top: 290px;
-    left: 80px;
+    top: 200px;
+    left: 60px;
     color: #ffd93d;
     font-size: 12px;
     font-weight: 700;
-    background: rgba(0,0,0,0.6);
-    padding: 4px 8px;
+    background: rgba(0,0,0,0.7);
+    padding: 4px 10px;
     border-radius: 4px;
   }
 
@@ -588,28 +638,28 @@
 
   #scene5 .pile {
     position: absolute;
-    top: 200px;
-    left: 300px;
-    width: 600px;
-    height: 250px;
+    top: 130px;
+    left: 280px;
+    width: 500px;
+    height: 200px;
   }
 
   #scene5 .pile-box {
     position: absolute;
-    width: 60px;
-    height: 60px;
+    width: 55px;
+    height: 55px;
     background: linear-gradient(180deg, #ff7675 0%, #d63031 100%);
     border: 2px solid #fff;
     border-radius: 4px;
     animation: explodeBox 2s ease-in infinite;
   }
 
-  #scene5 .pile-box:nth-child(1) { top: 0;   left: 0;   animation-delay: 0s; }
-  #scene5 .pile-box:nth-child(2) { top: 0;   left: 80px; animation-delay: 0.3s; }
-  #scene5 .pile-box:nth-child(3) { top: 80px; left: 40px; animation-delay: 0.6s; }
-  #scene5 .pile-box:nth-child(4) { top: 80px; left: 120px; animation-delay: 0.9s; }
-  #scene5 .pile-box:nth-child(5) { top: 0;   left: 160px; animation-delay: 1.2s; }
-  #scene5 .pile-box:nth-child(6) { top: 80px; left: 200px; animation-delay: 1.5s; }
+  #scene5 .pile-box:nth-child(1) { top: 0;   left: 0;   animation-delay: 0s;   }
+  #scene5 .pile-box:nth-child(2) { top: 0;   left: 70px; animation-delay: 0.3s; }
+  #scene5 .pile-box:nth-child(3) { top: 70px; left: 35px; animation-delay: 0.6s; }
+  #scene5 .pile-box:nth-child(4) { top: 70px; left: 105px; animation-delay: 0.9s; }
+  #scene5 .pile-box:nth-child(5) { top: 0;   left: 140px; animation-delay: 1.2s; }
+  #scene5 .pile-box:nth-child(6) { top: 70px; left: 175px; animation-delay: 1.5s; }
 
   @keyframes explodeBox {
     0%, 60%   { transform: scale(1); opacity: 1; }
@@ -619,7 +669,7 @@
 
   #scene5 .fragment {
     position: absolute;
-    bottom: 100px;
+    top: 200px;
     width: 12px;
     height: 12px;
     background: #74b9ff;
@@ -634,8 +684,8 @@
   }
 
   #scene5 .tux-5 {
-    bottom: 80px;
-    left: 200px;
+    bottom: 30px;
+    right: 100px;
     animation: tuxExhausted 2s ease-in-out infinite;
   }
 
@@ -646,14 +696,22 @@
     50%      { transform: scale(0.95) rotate(-3deg); }
   }
 
+  #scene5 .speech-tux {
+    bottom: 120px;
+    right: 200px;
+    background: #fff;
+    color: #d63031;
+    border-color: #d63031;
+  }
+
   #scene5 .frag-label {
     position: absolute;
-    bottom: 50px;
+    top: 30px;
     left: 50%;
     transform: translateX(-50%);
     color: #ffd93d;
-    background: rgba(0,0,0,0.7);
-    padding: 6px 14px;
+    background: rgba(0,0,0,0.8);
+    padding: 8px 16px;
     border-radius: 6px;
     font-family: monospace;
     font-size: 13px;
@@ -661,7 +719,7 @@
   }
 
   /* ════════════════════════════════════════════════════════════════════ */
-  /* SCENE 6 — The Memory Crisis                                          */
+  /* SCENE 6 — Memory Crisis                                              */
   /* ════════════════════════════════════════════════════════════════════ */
   #scene6 {
     background: linear-gradient(135deg, #d63031 0%, #6c0e0e 100%);
@@ -670,28 +728,28 @@
 
   @keyframes alarmFlash {
     0%, 100% { filter: brightness(1); }
-    50%      { filter: brightness(0.8); }
+    50%      { filter: brightness(0.85); }
   }
 
   #scene6 .split {
     position: absolute;
     inset: 0;
-    display: flex;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
   }
 
   #scene6 .panel-left {
-    flex: 1;
-    background: rgba(108, 14, 14, 0.6);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 40px;
+    background: rgba(108, 14, 14, 0.7);
+    display: grid;
+    grid-template-rows: auto auto auto auto;
+    align-content: center;
+    gap: 14px;
+    padding: 20px 40px;
     border-right: 4px solid #ffd93d;
+    position: relative;
   }
 
   #scene6 .panel-right {
-    flex: 1;
     background: #1a1a2e;
     display: flex;
     align-items: center;
@@ -699,39 +757,50 @@
   }
 
   #scene6 .stat-big {
-    color: #fff;
     text-align: center;
-    margin: 12px 0;
+    color: #fff;
   }
 
   #scene6 .stat-big .num {
-    font-size: 48px;
+    font-size: 38px;
     font-weight: 900;
     color: #ffd93d;
     text-shadow: 0 0 20px rgba(255,217,61,0.6);
     display: block;
+    line-height: 1;
   }
 
   #scene6 .stat-big .label {
-    font-size: 13px;
+    font-size: 12px;
     color: #ecf0f1;
     margin-top: 4px;
   }
 
   #scene6 .tux-6 {
-    bottom: 60px;
-    left: 50px;
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    width: 60px;
+    height: 70px;
+    font-size: 60px;
   }
+
   #scene6 .tux-6::before { content: '😢'; }
 
+  #scene6 .speech-tux {
+    position: absolute;
+    bottom: 30px;
+    left: 90px;
+    max-width: 180px;
+  }
+
   #scene6 .phone {
-    width: 250px;
-    height: 450px;
+    width: 220px;
+    height: 380px;
     background: #000;
-    border-radius: 30px;
+    border-radius: 28px;
     border: 6px solid #34495e;
-    padding: 20px;
-    position: relative;
+    padding: 16px;
   }
 
   #scene6 .phone-screen {
@@ -745,35 +814,39 @@
     justify-content: center;
     color: white;
     text-align: center;
-    padding: 20px;
+    padding: 16px;
     animation: alarmFlash 0.4s ease-in-out infinite;
   }
 
   #scene6 .phone-screen .alert-icon {
-    font-size: 60px;
-    margin-bottom: 20px;
+    font-size: 50px;
+    margin-bottom: 16px;
   }
 
   #scene6 .phone-screen .alert-msg {
-    font-size: 18px;
+    font-size: 16px;
     font-weight: 700;
-    margin: 6px 0;
+    margin: 4px 0;
+  }
+
+  #scene6 .phone-screen .alert-msg.small {
+    font-size: 13px;
+    margin-top: 16px;
+    opacity: 0.9;
   }
 
   /* ════════════════════════════════════════════════════════════════════ */
-  /* SCENE 7 — Tux Crying in the Rain                                     */
+  /* SCENE 7 — Tux in the rain                                            */
   /* ════════════════════════════════════════════════════════════════════ */
-  #scene7 {
-    background: linear-gradient(180deg, #0a0e27 0%, #1a2540 50%, #2c3e50 100%);
-  }
+  #scene7 { background: linear-gradient(180deg, #0a0e27 0%, #1a2540 50%, #2c3e50 100%); }
 
   #scene7 .streetlight {
     position: absolute;
-    top: 60px;
+    top: 30px;
     left: 50%;
     transform: translateX(-50%);
     width: 200px;
-    height: 250px;
+    height: 200px;
     background: radial-gradient(ellipse at 50% 0%, rgba(255,217,61,0.3) 0%, transparent 70%);
     pointer-events: none;
   }
@@ -785,18 +858,18 @@
     left: 50%;
     transform: translateX(-50%);
     width: 4px;
-    height: 100px;
+    height: 80px;
     background: #34495e;
   }
 
   #scene7 .streetlight::after {
     content: '';
     position: absolute;
-    top: 90px;
+    top: 70px;
     left: 50%;
     transform: translateX(-50%);
     width: 60px;
-    height: 16px;
+    height: 14px;
     background: #ffd93d;
     border-radius: 4px;
     box-shadow: 0 0 40px rgba(255,217,61,0.8);
@@ -819,82 +892,23 @@
 
   @keyframes rainFall {
     0%   { transform: translateY(-50px); }
-    100% { transform: translateY(800px); }
-  }
-
-  #scene7 .tux-7 {
-    bottom: 120px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 120px;
-    height: 140px;
-    z-index: 5;
-  }
-
-  #scene7 .tux-7::before {
-    content: '🐧';
-    font-size: 100px;
-    filter: brightness(0.7) grayscale(0.3);
-  }
-
-  #scene7 .umbrella {
-    position: absolute;
-    top: -40px;
-    left: 50%;
-    transform: translateX(-50%);
-    font-size: 60px;
-  }
-
-  #scene7 .ground-text {
-    position: absolute;
-    bottom: 60px;
-    left: 50%;
-    transform: translateX(-50%);
-    color: rgba(255,255,255,0.3);
-    font-size: 14px;
-    font-family: monospace;
-    text-align: center;
-    animation: textFade 3s ease-in-out infinite;
-  }
-
-  @keyframes textFade {
-    0%, 100% { opacity: 0.2; }
-    50%      { opacity: 0.6; }
-  }
-
-  #scene7 .quote {
-    position: absolute;
-    bottom: 120px;
-    left: 50%;
-    transform: translateX(-50%);
-    color: #95a5a6;
-    font-style: italic;
-    font-size: 13px;
-    text-align: center;
-    max-width: 600px;
-    line-height: 1.6;
-    opacity: 0;
-    animation: fadeInQuote 4s ease-in 2s forwards;
-  }
-
-  @keyframes fadeInQuote {
-    0%   { opacity: 0; transform: translateX(-50%) translateY(20px); }
-    100% { opacity: 1; transform: translateX(-50%) translateY(0); }
+    100% { transform: translateY(550px); }
   }
 
   #scene7 .sign {
     position: absolute;
-    top: 250px;
+    top: 230px;
     left: 50%;
     transform: translateX(-50%);
     background: #fff;
     color: #2c3e50;
-    padding: 14px 24px;
+    padding: 12px 22px;
     border-radius: 8px;
     font-weight: 700;
     font-size: 16px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
     animation: signSway 3s ease-in-out infinite;
+    z-index: 10;
   }
 
   @keyframes signSway {
@@ -902,259 +916,266 @@
     50%      { transform: translateX(-50%) rotate(2deg); }
   }
 
-  /* ── Controls ── */
-  .controls {
-    position: fixed;
-    bottom: 20px;
+  #scene7 .tux-7 {
+    bottom: 70px;
     left: 50%;
     transform: translateX(-50%);
-    display: flex;
-    gap: 12px;
-    z-index: 100;
+    width: 100px;
+    height: 120px;
+    font-size: 90px;
+    z-index: 5;
+    filter: brightness(0.7) grayscale(0.3);
   }
 
-  .controls button {
-    background: rgba(255,255,255,0.9);
-    border: none;
-    padding: 8px 16px;
-    border-radius: 6px;
-    font-weight: 600;
-    cursor: pointer;
-    color: #2c3e50;
+  #scene7 .tux-7::before { content: '🐧'; }
+
+  #scene7 .umbrella {
+    position: absolute;
+    top: -35px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 50px;
+    filter: none;
   }
 
-  .controls button:hover { background: #fff; }
+  #scene7 .ground-text {
+    position: absolute;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: rgba(255,255,255,0.4);
+    font-size: 13px;
+    font-family: monospace;
+    text-align: center;
+    animation: textFade 3s ease-in-out infinite;
+    white-space: nowrap;
+  }
 
-  .progress {
-    position: fixed;
-    top: 0;
-    left: 0;
-    height: 4px;
-    background: #00b894;
-    width: 0%;
-    transition: width 0.5s linear;
-    z-index: 200;
+  @keyframes textFade {
+    0%, 100% { opacity: 0.3; }
+    50%      { opacity: 0.7; }
+  }
+
+  #scene7 .quote {
+    position: absolute;
+    bottom: 70px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #95a5a6;
+    font-style: italic;
+    font-size: 12px;
+    text-align: center;
+    max-width: 600px;
+    line-height: 1.5;
+    opacity: 0;
+    animation: fadeInQuote 4s ease-in 1.5s forwards;
+    pointer-events: none;
+  }
+
+  @keyframes fadeInQuote {
+    0%   { opacity: 0; transform: translateX(-50%) translateY(20px); }
+    100% { opacity: 1; transform: translateX(-50%) translateY(0); }
   }
 </style>
 </head>
 <body>
 
-<div class="progress" id="progress"></div>
-
 <div class="stage">
+  <div class="progress" id="progress"></div>
 
-  <!-- ═══════════════════════ SCENE 1 ═══════════════════════ -->
-  <div class="scene active" id="scene1">
-    <div class="scene-num">SCENE 1 / 7</div>
-    <div class="skyline"></div>
-    <div class="desk"></div>
-    <div class="desk-label">Kernel Memory Manager</div>
-    <div class="tux tux-1"></div>
-    <div class="speech" style="left: 240px; bottom: 240px;">Send 'em in!</div>
-
-    <div class="app a1">📷</div>
-    <div class="app a2">🗺️</div>
-    <div class="app a3">🌐</div>
-    <div class="app a4">🎵</div>
-    <div class="app a5">📱</div>
-
-    <div class="app-cry">"We need memory! NOW!"</div>
-
-    <div class="overlay-text">
-      mmap() → MADV_HUGEPAGE → touch every page
-    </div>
-
-    <div class="caption">Phase 1: App launch simulation — 14,000 processes</div>
+  <!-- ── TOP BAR ── -->
+  <div class="top-bar">
+    <div class="scene-num" id="scene-num">SCENE 1 / 7</div>
+    <div class="overlay-text" id="overlay-text"></div>
   </div>
 
-  <!-- ═══════════════════════ SCENE 2 ═══════════════════════ -->
-  <div class="scene" id="scene2">
-    <div class="scene-num">SCENE 2 / 7</div>
+  <!-- ── CANVAS ── -->
+  <div class="canvas-area">
 
-    <div class="request">App needs: 50 KB</div>
-
-    <div class="shelf">
-      <div class="box" data-size="16">16 KB</div>
-      <div class="box" data-size="32">32 KB</div>
-      <div class="box" data-size="64">64 KB</div>
-      <div class="box" data-size="128">128 KB</div>
-      <div class="box" data-size="256">256 KB</div>
-      <div class="box" data-size="512">512 KB</div>
-      <div class="box" data-size="1MB">1 MB</div>
-      <div class="box" data-size="2MB">2 MB</div>
+    <!-- SCENE 1 -->
+    <div class="scene active" id="scene1">
+      <div class="skyline"></div>
+      <div class="desk"></div>
+      <div class="desk-label">Kernel Memory Manager</div>
+      <div class="tux tux-1"></div>
+      <div class="speech speech-tux">Send 'em in!</div>
+      <div class="app a1">📷</div>
+      <div class="app a2">🗺️</div>
+      <div class="app a3">🌐</div>
+      <div class="app a4">🎵</div>
+      <div class="app a5">📱</div>
+      <div class="demand">"We need memory! NOW!"</div>
     </div>
 
-    <div class="tux tux-2"></div>
-
-    <div class="speech" style="bottom: 200px; left: 65%;">Biggest one that fits! Always!</div>
-
-    <div class="arrow-wrong">←</div>
-    <div class="waste-callout">14 KB wasted!</div>
-
-    <div class="caption">Kernel rule: allocate largest THP order ≤ VMA alignment</div>
-  </div>
-
-  <!-- ═══════════════════════ SCENE 3 ═══════════════════════ -->
-  <div class="scene" id="scene3">
-    <div class="scene-num">SCENE 3 / 7</div>
-
-    <div class="stuck-label">PARTIALLY MAPPED — can't free, can't use</div>
-
-    <div class="broken-folio">
-      <div class="folio-half left">FREED</div>
-      <div class="folio-half right">25 KB used</div>
+    <!-- SCENE 2 -->
+    <div class="scene" id="scene2">
+      <div class="request">App needs: 50 KB</div>
+      <div class="waste-callout">14 KB wasted!</div>
+      <div class="speech speech-tux">Biggest one that fits! Always!</div>
+      <div class="shelf">
+        <div class="box" data-size="16">16 KB</div>
+        <div class="box" data-size="32">32 KB</div>
+        <div class="box" data-size="64">64 KB</div>
+        <div class="box" data-size="128">128 KB</div>
+        <div class="box" data-size="256">256 KB</div>
+        <div class="box" data-size="512">512 KB</div>
+        <div class="box" data-size="1MB">1 MB</div>
+        <div class="box" data-size="2MB">2 MB</div>
+      </div>
+      <div class="tux tux-2"></div>
     </div>
 
-    <div class="tux tux-3"></div>
-    <div class="speech" style="left: 200px; bottom: 220px;">It's stuck! I can't return it!</div>
-
-    <div class="app-bubble">"I only needed 25 KB of this…"</div>
-
-    <div class="caption">munmap(first half) → folio is now partially mapped</div>
-  </div>
-
-  <!-- ═══════════════════════ SCENE 4 ═══════════════════════ -->
-  <div class="scene" id="scene4">
-    <div class="scene-num">SCENE 4 / 7</div>
-    <div class="corridor"></div>
-    <div class="conveyor"></div>
-
-    <div class="stuck-box s1" style="bottom: 230px;">64 KB stuck</div>
-    <div class="stuck-box s2" style="bottom: 230px;">128 KB stuck</div>
-    <div class="stuck-box s3" style="bottom: 230px;">256 KB stuck</div>
-    <div class="stuck-box s4" style="bottom: 230px;">512 KB stuck</div>
-    <div class="stuck-box s5" style="bottom: 230px;">64 KB stuck</div>
-    <div class="stuck-box s6" style="bottom: 230px;">256 KB stuck</div>
-
-    <div class="tux tux-4"></div>
-    <div class="speech" style="bottom: 270px; left: 280px;">They keep coming!! I can't split fast enough!!</div>
-
-    <div class="scoreboard">
-      <h3>⚠ STRESS COUNTERS</h3>
-      <div class="stat">82,005</div>
-      <div class="stat-label">split_deferred folios</div>
-      <div class="stat" style="margin-top: 12px;">21,779 MB</div>
-      <div class="stat-label">memory locked</div>
+    <!-- SCENE 3 -->
+    <div class="scene" id="scene3">
+      <div class="stuck-label">PARTIALLY MAPPED — can't free, can't use</div>
+      <div class="broken-folio">
+        <div class="folio-half left">FREED</div>
+        <div class="folio-half right">25 KB used</div>
+      </div>
+      <div class="tux tux-3"></div>
+      <div class="speech speech-tux">It's stuck! I can't return it!</div>
+      <div class="speech speech-app">"I only needed 25 KB of this…"</div>
     </div>
 
-    <div class="caption">Phase 2: Split stress — 82,000 partially-mapped folios queued</div>
-  </div>
+    <!-- SCENE 4 -->
+    <div class="scene" id="scene4">
+      <div class="corridor"></div>
+      <div class="conveyor"></div>
+      <div class="stuck-box s1">64 KB stuck</div>
+      <div class="stuck-box s2">128 KB stuck</div>
+      <div class="stuck-box s3">256 KB stuck</div>
+      <div class="stuck-box s4">512 KB stuck</div>
+      <div class="stuck-box s5">64 KB stuck</div>
+      <div class="stuck-box s6">256 KB stuck</div>
+      <div class="tux tux-4"></div>
+      <div class="speech speech-tux">They keep coming!! I can't split fast enough!!</div>
 
-  <!-- ═══════════════════════ SCENE 5 ═══════════════════════ -->
-  <div class="scene" id="scene5">
-    <div class="scene-num">SCENE 5 / 7</div>
-
-    <div class="robot"></div>
-    <div class="robot-label">kswapd shrinker</div>
-
-    <div class="pile">
-      <div class="pile-box"></div>
-      <div class="pile-box"></div>
-      <div class="pile-box"></div>
-      <div class="pile-box"></div>
-      <div class="pile-box"></div>
-      <div class="pile-box"></div>
+      <div class="scoreboard">
+        <h3>⚠ STRESS COUNTERS</h3>
+        <div class="stat">82,005</div>
+        <div class="stat-label">split_deferred folios</div>
+        <div class="stat" style="margin-top: 10px;">21,779 MB</div>
+        <div class="stat-label">memory locked</div>
+      </div>
     </div>
 
-    <!-- 16 fragments scatter from each explosion -->
-    <div class="fragment" style="left: 400px; --dx: -100px; --dy: 200px; animation-delay: 0.2s;"></div>
-    <div class="fragment" style="left: 420px; --dx: 50px;   --dy: 250px; animation-delay: 0.4s;"></div>
-    <div class="fragment" style="left: 440px; --dx: 150px;  --dy: 220px; animation-delay: 0.6s;"></div>
-    <div class="fragment" style="left: 460px; --dx: -80px;  --dy: 280px; animation-delay: 0.8s;"></div>
-    <div class="fragment" style="left: 500px; --dx: 200px;  --dy: 150px; animation-delay: 1.0s;"></div>
-    <div class="fragment" style="left: 540px; --dx: -150px; --dy: 230px; animation-delay: 1.2s;"></div>
-    <div class="fragment" style="left: 580px; --dx: 100px;  --dy: 280px; animation-delay: 1.4s;"></div>
-    <div class="fragment" style="left: 620px; --dx: -50px;  --dy: 200px; animation-delay: 1.6s;"></div>
-    <div class="fragment" style="left: 660px; --dx: 180px;  --dy: 240px; animation-delay: 1.8s;"></div>
-    <div class="fragment" style="left: 700px; --dx: -120px; --dy: 260px; animation-delay: 2.0s;"></div>
-    <div class="fragment" style="left: 740px; --dx: 80px;   --dy: 200px; animation-delay: 2.2s;"></div>
-    <div class="fragment" style="left: 780px; --dx: -200px; --dy: 220px; animation-delay: 2.4s;"></div>
+    <!-- SCENE 5 -->
+    <div class="scene" id="scene5">
+      <div class="frag-label">order-0 fragments — buddy allocator polluted</div>
 
-    <div class="tux tux-5"></div>
-    <div class="speech" style="bottom: 200px; left: 250px;">I'm burning CPU just cleaning this up…</div>
+      <div class="robot"></div>
+      <div class="robot-label">kswapd shrinker</div>
 
-    <div class="frag-label">order-0 fragments — buddy allocator polluted</div>
-
-    <div class="caption">Shrinker splits folios back to base pages — CPU wasted, buddy fragmented</div>
-  </div>
-
-  <!-- ═══════════════════════ SCENE 6 ═══════════════════════ -->
-  <div class="scene" id="scene6">
-    <div class="scene-num">SCENE 6 / 7</div>
-
-    <div class="split">
-      <div class="panel-left">
-        <div class="tux tux-6" style="position: relative; bottom: auto; left: auto; margin-bottom: 30px;"></div>
-
-        <div class="stat-big">
-          <span class="num">21,779 MB</span>
-          <span class="label">memory locked in stuck folios</span>
-        </div>
-        <div class="stat-big">
-          <span class="num">82,005</span>
-          <span class="label">split events</span>
-        </div>
-        <div class="stat-big">
-          <span class="num">14,239</span>
-          <span class="label">PMD (2MB) folios over-allocated</span>
-        </div>
-
-        <div class="speech" style="position: relative; margin-top: 20px;">
-          I gave everyone huge boxes they didn't need…
-        </div>
+      <div class="pile">
+        <div class="pile-box"></div>
+        <div class="pile-box"></div>
+        <div class="pile-box"></div>
+        <div class="pile-box"></div>
+        <div class="pile-box"></div>
+        <div class="pile-box"></div>
       </div>
 
-      <div class="panel-right">
-        <div class="phone">
-          <div class="phone-screen">
-            <div class="alert-icon">⚠️</div>
-            <div class="alert-msg">App killed (OOM)</div>
-            <div class="alert-msg" style="font-size: 14px; margin-top: 20px;">Low memory warning</div>
-            <div class="alert-msg" style="font-size: 14px;">Reclaim stall</div>
+      <div class="fragment" style="left: 350px; --dx: -100px; --dy: 100px; animation-delay: 0.2s;"></div>
+      <div class="fragment" style="left: 380px; --dx: 50px;   --dy: 150px; animation-delay: 0.4s;"></div>
+      <div class="fragment" style="left: 410px; --dx: 150px;  --dy: 120px; animation-delay: 0.6s;"></div>
+      <div class="fragment" style="left: 440px; --dx: -80px;  --dy: 180px; animation-delay: 0.8s;"></div>
+      <div class="fragment" style="left: 480px; --dx: 200px;  --dy: 80px;  animation-delay: 1.0s;"></div>
+      <div class="fragment" style="left: 520px; --dx: -150px; --dy: 130px; animation-delay: 1.2s;"></div>
+      <div class="fragment" style="left: 560px; --dx: 100px;  --dy: 180px; animation-delay: 1.4s;"></div>
+      <div class="fragment" style="left: 600px; --dx: -50px;  --dy: 100px; animation-delay: 1.6s;"></div>
+      <div class="fragment" style="left: 640px; --dx: 180px;  --dy: 140px; animation-delay: 1.8s;"></div>
+      <div class="fragment" style="left: 680px; --dx: -120px; --dy: 160px; animation-delay: 2.0s;"></div>
+      <div class="fragment" style="left: 720px; --dx: 80px;   --dy: 100px; animation-delay: 2.2s;"></div>
+      <div class="fragment" style="left: 760px; --dx: -200px; --dy: 120px; animation-delay: 2.4s;"></div>
+
+      <div class="tux tux-5"></div>
+      <div class="speech speech-tux">I'm burning CPU on cleanup…</div>
+    </div>
+
+    <!-- SCENE 6 -->
+    <div class="scene" id="scene6">
+      <div class="split">
+        <div class="panel-left">
+          <div class="stat-big">
+            <span class="num">21,779 MB</span>
+            <span class="label">memory locked in stuck folios</span>
+          </div>
+          <div class="stat-big">
+            <span class="num">82,005</span>
+            <span class="label">split events</span>
+          </div>
+          <div class="stat-big">
+            <span class="num">14,239</span>
+            <span class="label">PMD (2MB) folios over-allocated</span>
+          </div>
+
+          <div class="tux tux-6"></div>
+          <div class="speech speech-tux">I gave everyone huge boxes they didn't need…</div>
+        </div>
+
+        <div class="panel-right">
+          <div class="phone">
+            <div class="phone-screen">
+              <div class="alert-icon">⚠️</div>
+              <div class="alert-msg">App killed (OOM)</div>
+              <div class="alert-msg small">Low memory warning</div>
+              <div class="alert-msg small">Reclaim stall</div>
+            </div>
           </div>
         </div>
       </div>
     </div>
 
-    <div class="caption">Result: memory reclaim starved, OOM pressure rises, apps killed</div>
+    <!-- SCENE 7 -->
+    <div class="scene" id="scene7">
+      <div class="rain" id="rain-container"></div>
+      <div class="streetlight"></div>
+      <div class="sign">"There has to be a better way…"</div>
+
+      <div class="tux tux-7">
+        <div class="umbrella">☂️</div>
+      </div>
+
+      <div class="ground-text">82,005 folios · 21,779 MB locked · 14,239 over-allocated</div>
+
+      <div class="quote">
+        "fragmentation risks that need to be better understood first…"<br>
+        — Ryan Roberts, mTHP author, Linux 6.8
+      </div>
+    </div>
+
   </div>
 
-  <!-- ═══════════════════════ SCENE 7 ═══════════════════════ -->
-  <div class="scene" id="scene7">
-    <div class="scene-num">SCENE 7 / 7</div>
+  <!-- ── CAPTION BAR ── -->
+  <div class="caption-bar" id="caption">Phase 1: App launch simulation — 14,000 processes</div>
 
-    <div class="rain" id="rain-container"></div>
-    <div class="streetlight"></div>
-
-    <div class="sign">"There has to be a better way…"</div>
-
-    <div class="tux tux-7">
-      <div class="umbrella">☂️</div>
-    </div>
-
-    <div class="ground-text">
-      82,005 folios · 21,779 MB locked · 14,239 over-allocated
-    </div>
-
-    <div class="quote">
-      "fragmentation risks that need to be better understood first…"<br>
-      <span style="font-size: 11px;">— Ryan Roberts, mTHP author, Linux 6.8</span>
-    </div>
-
-    <div class="caption">The Linux mTHP allocator means well — but it has no concept of best fit</div>
+  <!-- ── CONTROLS ── -->
+  <div class="controls">
+    <button onclick="prevScene()">◀ Prev</button>
+    <button onclick="toggleAuto()" id="auto-btn">⏸ Pause</button>
+    <button onclick="nextScene()">Next ▶</button>
   </div>
-
-</div>
-
-<div class="controls">
-  <button onclick="prevScene()">◀ Prev</button>
-  <button onclick="toggleAuto()" id="auto-btn">⏸ Pause</button>
-  <button onclick="nextScene()">Next ▶</button>
 </div>
 
 <script>
   const scenes = document.querySelectorAll('.scene');
-  const sceneDurations = [8, 10, 9, 12, 11, 10, 12]; // seconds per scene
+  const sceneData = [
+    { num: '1 / 7', overlay: 'mmap() → MADV_HUGEPAGE → touch every page',
+      caption: 'Phase 1: App launch simulation — 14,000 processes', dur: 8 },
+    { num: '2 / 7', overlay: 'order = highest_set_bit(allowed) ≤ VMA_align',
+      caption: 'Kernel rule: allocate largest THP order ≤ VMA alignment', dur: 10 },
+    { num: '3 / 7', overlay: 'munmap(addr, len/2) → folio split impossible',
+      caption: 'munmap(first half) → folio is now partially mapped', dur: 9 },
+    { num: '4 / 7', overlay: 'deferred_split_folio() queue overflowing',
+      caption: 'Phase 2: Split stress — 82,000 partially-mapped folios queued', dur: 12 },
+    { num: '5 / 7', overlay: 'shrinker → split_huge_page() → 16 × 4KB',
+      caption: 'Shrinker splits folios back to base pages — CPU wasted, buddy fragmented', dur: 11 },
+    { num: '6 / 7', overlay: 'low_memory_killer → SIGKILL',
+      caption: 'Result: memory reclaim starved, OOM pressure rises, apps killed', dur: 10 },
+    { num: '7 / 7', overlay: 'Linux 6.8 mTHP — known fragmentation risk',
+      caption: 'The Linux mTHP allocator means well — but it has no concept of best fit', dur: 12 },
+  ];
+
   let current = 0;
   let auto = true;
   let timer;
@@ -1162,6 +1183,9 @@
   function showScene(idx) {
     scenes.forEach((s, i) => s.classList.toggle('active', i === idx));
     current = idx;
+    document.getElementById('scene-num').textContent = 'SCENE ' + sceneData[idx].num;
+    document.getElementById('overlay-text').textContent = sceneData[idx].overlay;
+    document.getElementById('caption').textContent = sceneData[idx].caption;
     updateProgress();
   }
 
@@ -1177,7 +1201,7 @@
 
   function scheduleNext() {
     clearTimeout(timer);
-    timer = setTimeout(nextScene, sceneDurations[current] * 1000);
+    timer = setTimeout(nextScene, sceneData[current].dur * 1000);
   }
 
   function toggleAuto() {
@@ -1188,13 +1212,12 @@
   }
 
   function updateProgress() {
-    const pct = ((current + 1) / scenes.length) * 100;
-    document.getElementById('progress').style.width = pct + '%';
+    document.getElementById('progress').style.width = ((current + 1) / scenes.length * 100) + '%';
   }
 
-  // Generate raindrops for scene 7
+  // Generate raindrops
   const rainContainer = document.getElementById('rain-container');
-  for (let i = 0; i < 80; i++) {
+  for (let i = 0; i < 60; i++) {
     const drop = document.createElement('div');
     drop.className = 'raindrop';
     drop.style.left = Math.random() * 100 + '%';
@@ -1203,9 +1226,9 @@
     rainContainer.appendChild(drop);
   }
 
-  // Start auto-advance
+  // Initialize
+  showScene(0);
   scheduleNext();
-  updateProgress();
 </script>
 
 </body>
