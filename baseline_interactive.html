@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>mTHP — Mainline vs Bestfit</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+    background: #f5f7fa;
+    font-family: 'Inter', -apple-system, 'Segoe UI', system-ui, sans-serif;
+    overflow: hidden;
+  }
+
+  body { display: flex; align-items: center; justify-content: center; }
+
+  .stage {
+    position: relative;
+    width: 1280px;
+    height: 720px;
+    background: #ffffff;
+    overflow: hidden;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.08);
+    border-radius: 12px;
+  }
+
+  .stage::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(circle, #e1e8ed 1px, transparent 1px);
+    background-size: 24px 24px;
+    pointer-events: none;
+    opacity: 0.5;
+  }
+
+  /* ─── Title ─── */
+  .title {
+    position: absolute;
+    top: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #2c3e50;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    z-index: 20;
+    background: rgba(255, 255, 255, 0.95);
+    padding: 5px 18px;
+    border-radius: 12px;
+    border: 1px solid #e1e8ed;
+  }
+
+  .title .pill {
+    display: inline-block;
+    color: #fff;
+    padding: 2px 10px;
+    border-radius: 8px;
+    font-size: 11px;
+    margin-left: 8px;
+  }
+
+  .title .pill.mainline { background: #f5a623; }
+  .title .pill.bestfit  { background: #2e8b57; }
+  .title .step-counter {
+    display: inline-block;
+    background: #4a90e2;
+    color: #fff;
+    padding: 2px 10px;
+    border-radius: 8px;
+    font-size: 11px;
+    margin-left: 8px;
+    font-weight: 700;
+  }
+
+  /* ─── Mode toggle ─── */
+  .mode-toggle {
+    position: absolute;
+    top: 16px;
+    right: 24px;
+    display: flex;
+    background: #f5f7fa;
+    border-radius: 8px;
+    padding: 4px;
+    z-index: 25;
+    gap: 2px;
+    border: 1px solid #d4dbe2;
+  }
+
+  .mode-btn {
+    padding: 6px 16px;
+    border: none;
+    background: transparent;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    color: #5a6573;
+    transition: all 0.2s;
+    font-family: inherit;
+  }
+
+  .mode-btn.active.mainline { background: #f5a623; color: #fff; }
+  .mode-btn.active.bestfit  { background: #2e8b57; color: #fff; }
+
+  /* ─── Lanes ─── */
+  .lane {
+    position: absolute;
+    left: 30px;
+    right: 30px;
+    background: rgba(255, 255, 255, 0.85);
+    border: 2px solid;
+    border-radius: 14px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  }
+
+  .lane-userspace { top: 60px;  height: 130px; border-color: #4a90e2; }
+  .lane-kernel    { top: 220px; height: 110px; border-color: #f5a623; }
+  .lane-ram       { top: 360px; height: 250px; border-color: #e74c3c; }
+
+  .lane-label {
+    position: absolute;
+    top: -13px;
+    left: 24px;
+    background: #ffffff;
+    padding: 0 14px;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    z-index: 5;
+  }
+
+  .lane-userspace .lane-label { color: #4a90e2; }
+  .lane-kernel    .lane-label { color: #f5a623; }
+  .lane-ram       .lane-label { color: #e74c3c; }
+
+  .lane-sublabel {
+    position: absolute;
+    top: 8px;
+    right: 24px;
+    color: #8b95a2;
+    font-size: 10px;
+    font-family: 'JetBrains Mono', 'Consolas', monospace;
+  }
+
+  /* ─── Userspace VMA queue ─── */
+  .vma-queue {
+    position: absolute;
+    top: 30px;
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    padding: 0 8px;
+  }
+
+  .vma-card {
+    flex: 0 0 auto;
+    height: 70px;
+    border-radius: 8px;
+    color: white;
+    padding: 6px 10px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    transition: all 0.4s ease;
+    opacity: 0.35;
+    transform: translateY(0);
+    cursor: default;
+    position: relative;
+    min-width: 90px;
+    text-align: center;
+  }
+
+  .vma-card.processed {
+    opacity: 0.7;
+    filter: saturate(0.6);
+  }
+
+  .vma-card.active {
+    opacity: 1;
+    transform: translateY(-6px) scale(1.05);
+    box-shadow: 0 8px 24px rgba(74,144,226,0.4);
+    z-index: 5;
+  }
+
+  .vma-card .size {
+    font-size: 14px;
+    margin-bottom: 2px;
+  }
+
+  .vma-card .align {
+    font-size: 9px;
+    font-weight: 500;
+    opacity: 0.85;
+    font-family: 'JetBrains Mono', monospace;
+    margin-bottom: 1px;
+  }
+
+  .vma-card .desc {
+    font-size: 9px;
+    font-weight: 500;
+    opacity: 0.85;
+  }
+
+  /* VMA color palette */
+  .vma-card.c1 { background: linear-gradient(135deg, #4a90e2, #2e6cb0); }
+  .vma-card.c2 { background: linear-gradient(135deg, #50c878, #2e8b57); }
+  .vma-card.c3 { background: linear-gradient(135deg, #f5a623, #d68910); }
+  .vma-card.c4 { background: linear-gradient(135deg, #b67ff0, #8e44ad); }
+  .vma-card.c5 { background: linear-gradient(135deg, #ff6b9d, #c2185b); }
+  .vma-card.c6 { background: linear-gradient(135deg, #00bcd4, #00838f); }
+  .vma-card.c7 { background: linear-gradient(135deg, #ff9568, #e64a19); }
+
+  /* ─── Kernel decision block ─── */
+  .kernel-block {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 880px;
+    height: 78px;
+    background: linear-gradient(135deg, #fff8e7 0%, #fff3d4 100%);
+    border: 2px solid #f5a623;
+    border-radius: 8px;
+    padding: 10px 18px;
+    box-shadow: 0 4px 14px rgba(245,166,35,0.15);
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    transition: all 0.3s ease;
+  }
+
+  .kernel-block.mode-bestfit {
+    border-color: #2e8b57;
+    background: linear-gradient(135deg, #e7f5ec 0%, #d4f1de 100%);
+    box-shadow: 0 4px 14px rgba(46,139,87,0.18);
+  }
+
+  .kernel-block.active { transform: translate(-50%, -50%) scale(1.02); }
+
+  .kernel-block .fn-block {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .kernel-block .fn-name {
+    color: #d68910;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .kernel-block.mode-bestfit .fn-name { color: #1e6e3a; }
+
+  .kernel-block .rule {
+    color: #2c3e50;
+    font-size: 11px;
+    line-height: 1.4;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .kernel-block .rule .keyword { color: #c2185b; font-weight: 700; }
+  .kernel-block .rule .value { color: #2e6cb0; font-weight: 600; }
+
+  .kernel-decision {
+    flex: 0 0 auto;
+    width: 200px;
+    text-align: center;
+    border-left: 2px solid #d4dbe2;
+    padding-left: 14px;
+  }
+
+  .kernel-decision .label {
+    font-size: 9px;
+    font-weight: 700;
+    color: #8b95a2;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 2px;
+  }
+
+  .kernel-decision .order {
+    font-size: 22px;
+    font-weight: 900;
+    color: #d68910;
+    font-family: 'JetBrains Mono', monospace;
+    margin-bottom: 2px;
+    line-height: 1;
+  }
+  .kernel-block.mode-bestfit .kernel-decision .order { color: #1e6e3a; }
+
+  .kernel-decision .reasoning {
+    font-size: 10px;
+    color: #5a6573;
+    line-height: 1.3;
+  }
+
+  /* ─── RAM lane: 7 folio slots ─── */
+  .ram-row {
+    position: absolute;
+    top: 30px;
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    gap: 6px;
+  }
+
+  .folio {
+    flex: 0 0 auto;
+    width: 160px;
+    height: 190px;
+    background: #fdfdfd;
+    border: 2px solid #d4dbe2;
+    border-radius: 8px;
+    padding: 8px 10px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    opacity: 0.3;
+    transition: all 0.4s ease;
+  }
+
+  .folio.filled {
+    opacity: 1;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.1);
+  }
+
+  .folio.filled.mainline { border-color: #f5a623; }
+  .folio.filled.bestfit  { border-color: #2e8b57; }
+
+  .folio.placeholder {
+    border-style: dashed;
+    background: #fafbfc;
+  }
+
+  .folio-header {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    font-weight: 800;
+    text-align: center;
+    margin-bottom: 4px;
+    letter-spacing: 0.05em;
+    color: #8b95a2;
+  }
+
+  .folio.filled .folio-header { color: #d68910; }
+  .folio.filled.bestfit .folio-header { color: #1e6e3a; }
+
+  .folio-size-tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 800;
+    text-align: center;
+    color: #2c3e50;
+    margin-bottom: 4px;
+  }
+
+  .folio-bar {
+    height: 22px;
+    background: #f1f3f5;
+    border-radius: 3px;
+    overflow: hidden;
+    position: relative;
+    margin-bottom: 4px;
+    display: flex;
+  }
+
+  .folio-used {
+    height: 100%;
+  }
+
+  .folio-bar .label-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 9px;
+    font-weight: 800;
+    color: #2c3e50;
+    font-family: 'JetBrains Mono', monospace;
+    white-space: nowrap;
+  }
+
+  .folio-stats {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    text-align: center;
+    line-height: 1.3;
+  }
+
+  .folio-stats .req { color: #5a6573; }
+  .folio-stats .got { font-weight: 700; }
+  .folio-stats .got.over { color: #c0392b; }
+  .folio-stats .got.exact { color: #1e6e3a; }
+
+  /* Folio "wins" badge */
+  .folio-badge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: #2e8b57;
+    color: #fff;
+    font-size: 9px;
+    font-weight: 800;
+    padding: 3px 7px;
+    border-radius: 10px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+  }
+
+  /* ─── Stats summary panel (top right above stage) ─── */
+  .stats-summary {
+    position: absolute;
+    bottom: 84px;
+    right: 30px;
+    background: #fff;
+    border: 2px solid #d4dbe2;
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-family: 'JetBrains Mono', monospace;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+    z-index: 16;
+    min-width: 220px;
+  }
+
+  .stats-summary.mainline { border-color: #f5a623; }
+  .stats-summary.bestfit  { border-color: #2e8b57; }
+
+  .stats-summary .heading {
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 6px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid #f1f3f5;
+  }
+
+  .stats-summary.mainline .heading { color: #d68910; }
+  .stats-summary.bestfit  .heading { color: #1e6e3a; }
+
+  .stats-summary .row {
+    display: flex;
+    justify-content: space-between;
+    gap: 18px;
+    font-size: 11px;
+    margin: 3px 0;
+  }
+  .stats-summary .row .k { color: #5a6573; }
+  .stats-summary .row .v { font-weight: 700; }
+  .stats-summary .row.bad .v { color: #c0392b; }
+  .stats-summary .row.good .v { color: #1e6e3a; }
+  .stats-summary .row.neutral .v { color: #2c3e50; }
+
+  /* ─── Step dots ─── */
+  .stepper {
+    position: absolute;
+    bottom: 32px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 8px;
+    z-index: 20;
+  }
+
+  .step-dot {
+    width: 28px;
+    height: 5px;
+    background: #d4dbe2;
+    border-radius: 3px;
+    transition: all 0.3s ease;
+  }
+
+  .step-dot.active { background: #4a90e2; width: 50px; }
+  .step-dot.done   { background: #2e6cb0; }
+  .step-dot.bestfit-active { background: #2e8b57; width: 50px; }
+  .step-dot.bestfit-done   { background: #1e6e3a; }
+
+  /* ─── Buttons ─── */
+  .controls {
+    position: absolute;
+    bottom: 56px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 10px;
+    z-index: 20;
+  }
+
+  .btn {
+    padding: 8px 20px;
+    font-size: 13px;
+    font-weight: 700;
+    border: none;
+    border-radius: 7px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.2s;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  }
+
+  .btn-next {
+    background: #4a90e2;
+    color: #fff;
+  }
+  .btn-next:hover { background: #2e6cb0; transform: translateY(-1px); }
+  .btn-next:disabled { background: #b0bac4; cursor: not-allowed; transform: none; }
+
+  .btn-reset {
+    background: #fff;
+    color: #5a6573;
+    border: 1px solid #d4dbe2;
+  }
+  .btn-reset:hover { background: #f5f7fa; }
+
+  /* Connector arrows */
+  .arrow {
+    position: absolute;
+    color: #b0bac4;
+    font-size: 14px;
+    font-family: 'JetBrains Mono', monospace;
+    background: #fff;
+    padding: 1px 6px;
+    border-radius: 4px;
+    border: 1px solid #e1e8ed;
+    z-index: 4;
+  }
+
+  .arrow-1 { top: 195px; left: 50%; transform: translateX(-50%); font-size: 10px; }
+  .arrow-2 { top: 335px; left: 50%; transform: translateX(-50%); font-size: 10px; }
+</style>
+</head>
+<body>
+
+<div class="stage">
+
+  <div class="title">
+    Baseline mTHP — All Orders
+    <span class="pill mainline" id="title-pill">MAINLINE</span>
+    <span class="step-counter" id="step-label">VMA 0 / 7</span>
+  </div>
+
+  <div class="mode-toggle">
+    <button class="mode-btn active mainline" id="btn-mainline" onclick="setMode('mainline')">Mainline</button>
+    <button class="mode-btn bestfit" id="btn-bestfit" onclick="setMode('bestfit')">Bestfit</button>
+  </div>
+
+  <!-- ═════════════ USERSPACE LANE ═════════════ -->
+  <div class="lane lane-userspace">
+    <div class="lane-label">USERSPACE</div>
+    <div class="lane-sublabel">7 anon VMAs · varied size + alignment</div>
+
+    <div class="vma-queue" id="vma-queue">
+      <!-- 7 VMA cards, populated by JS -->
+    </div>
+  </div>
+
+  <div class="arrow arrow-1">↓ page fault</div>
+
+  <!-- ═════════════ KERNEL LANE ═════════════ -->
+  <div class="lane lane-kernel">
+    <div class="lane-label">KERNEL SPACE</div>
+    <div class="lane-sublabel">mm/memory.c · alloc_anon_folio()</div>
+
+    <div class="kernel-block" id="kernel-block">
+      <div class="fn-block">
+        <div class="fn-name" id="fn-name">thp_vma_allowable_orders()</div>
+        <div class="rule" id="rule-text">
+          <span class="keyword">orders</span> = sysfs_allowed &amp; <span class="value">suitable(vma, addr)</span> &amp; <span class="value">pte_range_none()</span>
+        </div>
+      </div>
+      <div class="kernel-decision">
+        <div class="label">picks order</div>
+        <div class="order" id="order-picked">—</div>
+        <div class="reasoning" id="reasoning">awaiting fault</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow arrow-2">↓ alloc_pages(order = N)</div>
+
+  <!-- ═════════════ RAM LANE ═════════════ -->
+  <div class="lane lane-ram">
+    <div class="lane-label">PHYSICAL RAM</div>
+    <div class="lane-sublabel" id="ram-sublabel">folios allocated by the kernel</div>
+
+    <div class="ram-row" id="ram-row">
+      <!-- 7 folio slots, populated by JS -->
+    </div>
+  </div>
+
+  <!-- ═════════════ Stats ═════════════ -->
+  <div class="stats-summary mainline" id="stats">
+    <div class="heading" id="stats-heading">⚠ Allocation Cost</div>
+    <div class="row neutral"><span class="k">requested</span><span class="v" id="stat-req">0 KB</span></div>
+    <div class="row bad"><span class="k">allocated</span><span class="v" id="stat-alloc">0 KB</span></div>
+    <div class="row bad"><span class="k">wasted</span><span class="v" id="stat-waste">0 KB</span></div>
+    <div class="row neutral"><span class="k">efficiency</span><span class="v" id="stat-eff">—</span></div>
+  </div>
+
+  <!-- Step dots -->
+  <div class="stepper" id="stepper">
+    <!-- 7 dots, populated by JS -->
+  </div>
+
+  <!-- Buttons -->
+  <div class="controls">
+    <button class="btn btn-reset" onclick="reset()">↺ Reset</button>
+    <button class="btn btn-next" id="next-btn" onclick="nextStep()">Next VMA ▶</button>
+  </div>
+
+</div>
+
+<script>
+/* ───────────────────────────────────────────────────────────
+   VMA dataset: 7 anon VMAs covering the full mTHP order range.
+   Each entry has: size (KB), alignment of fault addr, label,
+   color class, and the order picked by mainline vs bestfit.
+   ─────────────────────────────────────────────────────────── */
+const VMAS = [
+  {
+    size: 32, sizeLabel: '32 KB',
+    align: '4K-aligned', desc: 'small heap chunk', color: 'c1',
+    mainline: { order: 0, sizeKB: 4,    name: '4 KB',   reason: 'too small for mTHP' },
+    bestfit:  { order: 0, sizeKB: 4,    name: '4 KB',   reason: 'min_pages cap' },
+    different: false
+  },
+  {
+    size: 96, sizeLabel: '96 KB',
+    align: '64K-aligned', desc: 'arena', color: 'c2',
+    mainline: { order: 4, sizeKB: 64,   name: '64 KB',  reason: 'fits 64K @ aligned addr' },
+    bestfit:  { order: 4, sizeKB: 64,   name: '64 KB',  reason: 'contPTE bias · same as ml' },
+    different: false
+  },
+  {
+    size: 192, sizeLabel: '192 KB',
+    align: '128K-aligned', desc: 'buffer', color: 'c3',
+    mainline: { order: 5, sizeKB: 128,  name: '128 KB', reason: 'highest order that fits + tail' },
+    bestfit:  { order: 5, sizeKB: 128,  name: '128 KB', reason: 'same — fits cleanly' },
+    different: false
+  },
+  {
+    size: 256, sizeLabel: '256 KB',
+    align: '256K-aligned', desc: 'cache', color: 'c4',
+    mainline: { order: 6, sizeKB: 256,  name: '256 KB', reason: 'exact fit at order 6' },
+    bestfit:  { order: 6, sizeKB: 256,  name: '256 KB', reason: 'same — perfect fit' },
+    different: false
+  },
+  {
+    size: 1024, sizeLabel: '1 MB',
+    align: '2M-aligned, sparse', desc: 'in 4 MB VMA', color: 'c5',
+    mainline: { order: 9, sizeKB: 2048, name: '2 MB',   reason: 'PMD fits at aligned addr' },
+    bestfit:  { order: 8, sizeKB: 1024, name: '1 MB',   reason: 'VMA-size cap · skips PMD over-alloc' },
+    different: true
+  },
+  {
+    size: 512, sizeLabel: '512 KB',
+    align: '4M-aligned, sparse', desc: 'gap, mostly cold', color: 'c6',
+    mainline: { order: 9, sizeKB: 2048, name: '2 MB',   reason: 'speculative PMD promotion' },
+    bestfit:  { order: 7, sizeKB: 512,  name: '512 KB', reason: 'VMA-size cap · no waste' },
+    different: true
+  },
+  {
+    size: 64, sizeLabel: '64 KB',
+    align: '4K-aligned', desc: 'scratch (cold)', color: 'c7',
+    mainline: { order: 4, sizeKB: 64,   name: '64 KB',  reason: 'highest aligned order' },
+    bestfit:  { order: 0, sizeKB: 4,    name: '4 KB',   reason: 'min_pages=2 → 64K needs ≥128K' },
+    different: true
+  }
+];
+
+let mode = 'mainline';
+let step = 0;
+
+/* ─── Initial DOM build ─── */
+function buildVmaCards() {
+  const queue = document.getElementById('vma-queue');
+  queue.innerHTML = '';
+  VMAS.forEach((v, i) => {
+    const card = document.createElement('div');
+    card.className = `vma-card ${v.color}`;
+    card.id = `vma-${i}`;
+    card.innerHTML = `
+      <div class="size">${v.sizeLabel}</div>
+      <div class="align">${v.align}</div>
+      <div class="desc">${v.desc}</div>
+    `;
+    queue.appendChild(card);
+  });
+}
+
+function buildRamSlots() {
+  const row = document.getElementById('ram-row');
+  row.innerHTML = '';
+  VMAS.forEach((v, i) => {
+    const folio = document.createElement('div');
+    folio.className = 'folio placeholder';
+    folio.id = `folio-${i}`;
+    folio.innerHTML = `
+      <div class="folio-header">slot ${i+1}</div>
+      <div class="folio-size-tag">—</div>
+      <div class="folio-bar">
+        <div class="folio-used" style="width: 0%;"></div>
+      </div>
+      <div class="folio-stats">
+        <div class="req">req: ${v.sizeLabel}</div>
+        <div class="got">awaiting</div>
+      </div>
+    `;
+    row.appendChild(folio);
+  });
+}
+
+function buildStepper() {
+  const stepper = document.getElementById('stepper');
+  stepper.innerHTML = '';
+  for (let i = 0; i < VMAS.length; i++) {
+    const dot = document.createElement('div');
+    dot.className = 'step-dot';
+    dot.id = `dot-${i}`;
+    stepper.appendChild(dot);
+  }
+}
+
+/* ─── Mode switching ─── */
+function setMode(newMode) {
+  if (newMode === mode) return;
+  mode = newMode;
+  document.getElementById('btn-mainline').classList.toggle('active', mode === 'mainline');
+  document.getElementById('btn-bestfit').classList.toggle('active', mode === 'bestfit');
+
+  const pill = document.getElementById('title-pill');
+  pill.textContent = mode === 'mainline' ? 'MAINLINE' : 'WITH BESTFIT';
+  pill.className = 'pill ' + mode;
+
+  document.getElementById('kernel-block').classList.toggle('mode-bestfit', mode === 'bestfit');
+  document.getElementById('stats').className = 'stats-summary ' + mode;
+
+  // Update fn-name
+  const fnName = document.getElementById('fn-name');
+  if (mode === 'bestfit') {
+    fnName.textContent = 'mthp_bestfit_order() ∘ thp_vma_allowable_orders()';
+  } else {
+    fnName.textContent = 'thp_vma_allowable_orders()';
+  }
+
+  // Re-render all already-processed steps with new mode
+  rerender();
+}
+
+/* ─── Render the current state ─── */
+function rerender() {
+  // Update step counter
+  document.getElementById('step-label').textContent = `VMA ${step} / ${VMAS.length}`;
+
+  // Update step dots
+  for (let i = 0; i < VMAS.length; i++) {
+    const dot = document.getElementById(`dot-${i}`);
+    dot.className = 'step-dot';
+    if (i < step) {
+      dot.classList.add(mode === 'bestfit' ? 'bestfit-done' : 'done');
+    } else if (i === step - 1) {
+      dot.classList.add(mode === 'bestfit' ? 'bestfit-active' : 'active');
+    }
+  }
+
+  // Reset all VMAs
+  VMAS.forEach((v, i) => {
+    const card = document.getElementById(`vma-${i}`);
+    card.classList.remove('processed', 'active');
+    if (i < step - 1) card.classList.add('processed');
+    if (i === step - 1) card.classList.add('active');
+  });
+
+  // Reset all folios, then fill in the processed ones
+  let totalReq = 0, totalAlloc = 0;
+
+  for (let i = 0; i < VMAS.length; i++) {
+    const v = VMAS[i];
+    const f = document.getElementById(`folio-${i}`);
+    if (i < step) {
+      const decision = v[mode];
+      const usedPct = Math.max(2, (v.size / decision.sizeKB) * 100);
+      const isOver = decision.sizeKB > v.size * 1.5;
+      const isExact = decision.sizeKB <= v.size * 1.1;
+      const wins = mode === 'bestfit' && v.different;
+
+      const usedColor = `linear-gradient(90deg, ${getVmaColorHex(v.color, 0)}, ${getVmaColorHex(v.color, 1)})`;
+      f.className = 'folio filled ' + mode;
+      f.innerHTML = `
+        ${wins ? '<div class="folio-badge">SAVED</div>' : ''}
+        <div class="folio-header">${decision.name} folio</div>
+        <div class="folio-size-tag">order ${decision.order}</div>
+        <div class="folio-bar">
+          <div class="folio-used" style="width: ${usedPct}%; background: ${usedColor};"></div>
+          <div class="label-overlay">${v.size} KB used</div>
+        </div>
+        <div class="folio-stats">
+          <div class="req">req: ${v.sizeLabel}</div>
+          <div class="got ${isExact ? 'exact' : (isOver ? 'over' : '')}">
+            ${isExact ? '✓ fit' : (isOver ? `+${decision.sizeKB - v.size} KB waste` : `+${decision.sizeKB - v.size} KB tail`)}
+          </div>
+        </div>
+      `;
+
+      totalReq += v.size;
+      totalAlloc += decision.sizeKB;
+    } else {
+      f.className = 'folio placeholder';
+      f.innerHTML = `
+        <div class="folio-header">slot ${i+1}</div>
+        <div class="folio-size-tag">—</div>
+        <div class="folio-bar">
+          <div class="folio-used" style="width: 0%;"></div>
+        </div>
+        <div class="folio-stats">
+          <div class="req">req: ${v.sizeLabel}</div>
+          <div class="got">awaiting</div>
+        </div>
+      `;
+    }
+  }
+
+  // Update kernel block for current step
+  if (step > 0 && step <= VMAS.length) {
+    const v = VMAS[step - 1];
+    const decision = v[mode];
+    document.getElementById('order-picked').textContent = `O${decision.order}`;
+    document.getElementById('reasoning').textContent = decision.reason;
+    document.getElementById('rule-text').innerHTML = mode === 'bestfit'
+      ? `<span class="keyword">orders</span> = sysfs_allowed &amp; <span class="value">suitable</span> &amp; <span class="value">bestfit_cap(vma_size, min_pages=2)</span>`
+      : `<span class="keyword">orders</span> = sysfs_allowed &amp; <span class="value">suitable(vma, addr)</span> &amp; <span class="value">pte_range_none()</span>`;
+  } else {
+    document.getElementById('order-picked').textContent = '—';
+    document.getElementById('reasoning').textContent = 'awaiting fault';
+  }
+
+  // Update stats
+  const totalWaste = totalAlloc - totalReq;
+  const eff = totalAlloc > 0 ? (totalReq / totalAlloc * 100).toFixed(1) + '%' : '—';
+  document.getElementById('stat-req').textContent   = totalReq + ' KB';
+  document.getElementById('stat-alloc').textContent = totalAlloc + ' KB';
+  document.getElementById('stat-waste').textContent = totalWaste + ' KB';
+  document.getElementById('stat-eff').textContent   = eff;
+
+  // Update next button
+  const nextBtn = document.getElementById('next-btn');
+  if (step >= VMAS.length) {
+    nextBtn.disabled = true;
+    nextBtn.textContent = 'Done ✓';
+  } else {
+    nextBtn.disabled = false;
+    nextBtn.textContent = 'Next VMA ▶';
+  }
+}
+
+function getVmaColorHex(cls, idx) {
+  const palette = {
+    c1: ['#4a90e2', '#2e6cb0'],
+    c2: ['#50c878', '#2e8b57'],
+    c3: ['#f5a623', '#d68910'],
+    c4: ['#b67ff0', '#8e44ad'],
+    c5: ['#ff6b9d', '#c2185b'],
+    c6: ['#00bcd4', '#00838f'],
+    c7: ['#ff9568', '#e64a19']
+  };
+  return palette[cls][idx];
+}
+
+/* ─── Step control ─── */
+function nextStep() {
+  if (step >= VMAS.length) return;
+  step++;
+  rerender();
+}
+
+function reset() {
+  step = 0;
+  rerender();
+}
+
+/* Keyboard navigation */
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowRight' || e.key === ' ') {
+    e.preventDefault();
+    nextStep();
+  } else if (e.key === 'ArrowLeft') {
+    e.preventDefault();
+    if (step > 0) { step--; rerender(); }
+  } else if (e.key === 'r' || e.key === 'R') {
+    reset();
+  } else if (e.key === 'm' || e.key === 'M') {
+    setMode(mode === 'mainline' ? 'bestfit' : 'mainline');
+  }
+});
+
+/* Init */
+buildVmaCards();
+buildRamSlots();
+buildStepper();
+rerender();
+</script>
+
+</body>
+</html>
