@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Baseline mTHP Behavior</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+    background: #f5f7fa;
+    font-family: 'Inter', -apple-system, 'Segoe UI', system-ui, sans-serif;
+    overflow: hidden;
+  }
+
+  body { display: flex; align-items: center; justify-content: center; }
+
+  .stage {
+    position: relative;
+    width: 1280px;
+    height: 720px;
+    background: #ffffff;
+    overflow: hidden;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.08);
+    border-radius: 12px;
+  }
+
+  /* Subtle dot-grid backdrop */
+  .stage::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(circle, #e1e8ed 1px, transparent 1px);
+    background-size: 24px 24px;
+    pointer-events: none;
+    opacity: 0.6;
+  }
+
+  /* ─── Lanes ─── */
+  .lane {
+    position: absolute;
+    left: 60px;
+    right: 60px;
+    background: rgba(255, 255, 255, 0.85);
+    border: 2px solid;
+    border-radius: 14px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    backdrop-filter: blur(2px);
+  }
+
+  .lane-userspace { top: 50px;  height: 150px; border-color: #4a90e2; }
+  .lane-kernel    { top: 250px; height: 180px; border-color: #f5a623; }
+  .lane-ram       { top: 480px; height: 200px; border-color: #e74c3c; }
+
+  .lane-label {
+    position: absolute;
+    top: -13px;
+    left: 24px;
+    background: #ffffff;
+    padding: 0 14px;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    z-index: 5;
+  }
+
+  .lane-userspace .lane-label { color: #4a90e2; }
+  .lane-kernel    .lane-label { color: #f5a623; }
+  .lane-ram       .lane-label { color: #e74c3c; }
+
+  .lane-sublabel {
+    position: absolute;
+    top: 10px;
+    right: 24px;
+    color: #8b95a2;
+    font-size: 11px;
+    font-family: 'JetBrains Mono', 'Consolas', monospace;
+  }
+
+  /* ─── Connectors between lanes ─── */
+  .connector {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 2px;
+    background: #b0bac4;
+  }
+
+  .connector-1 { top: 200px; height: 50px; }
+  .connector-2 { top: 430px; height: 50px; }
+
+  .connector::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-top: 8px solid #b0bac4;
+  }
+
+  .connector-label {
+    position: absolute;
+    background: #ffffff;
+    color: #5a6573;
+    font-family: 'JetBrains Mono', 'Consolas', monospace;
+    font-size: 11px;
+    padding: 2px 10px;
+    border-radius: 4px;
+    left: 50%;
+    transform: translateX(-50%);
+    top: 18px;
+    white-space: nowrap;
+    border: 1px solid #e1e8ed;
+  }
+
+  /* ─────────────────────────────────────────────────────────
+     USERSPACE LANE — colorful VMA blocks
+     ───────────────────────────────────────────────────────── */
+  .vma {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    height: 70px;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-weight: 700;
+    font-size: 14px;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.15);
+    animation: flowAcross 8s linear infinite;
+    opacity: 0;
+  }
+
+  .vma-label {
+    font-size: 10px;
+    font-weight: 500;
+    opacity: 0.9;
+    margin-top: 3px;
+  }
+
+  /* Each VMA gets its own bright color */
+  .vma.v1 { width: 70px;  background: linear-gradient(135deg, #4a90e2, #2e6cb0); animation-delay: 0s;   }
+  .vma.v2 { width: 100px; background: linear-gradient(135deg, #50c878, #2e8b57); animation-delay: 1.5s; }
+  .vma.v3 { width: 120px; background: linear-gradient(135deg, #f5a623, #d68910); animation-delay: 3s;   }
+  .vma.v4 { width: 150px; background: linear-gradient(135deg, #b67ff0, #8e44ad); animation-delay: 4.5s; }
+  .vma.v5 { width: 90px;  background: linear-gradient(135deg, #ff6b9d, #c2185b); animation-delay: 6s;   }
+
+  @keyframes flowAcross {
+    0%   { left: -160px; opacity: 0; }
+    10%  { opacity: 1; }
+    45%  { left: calc(50% - 75px); opacity: 1; }
+    50%  { left: calc(50% - 75px); opacity: 0.4; transform: translateY(-50%) scale(0.92); }
+    55%  { opacity: 0; transform: translateY(-50%) scale(0.7); }
+    100% { opacity: 0; }
+  }
+
+  /* ─────────────────────────────────────────────────────────
+     KERNEL DECISION BLOCK
+     ───────────────────────────────────────────────────────── */
+  .kernel-block {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 420px;
+    height: 130px;
+    background: linear-gradient(135deg, #fff8e7 0%, #fff3d4 100%);
+    border: 2px solid #f5a623;
+    border-radius: 12px;
+    padding: 18px 26px;
+    box-shadow: 0 6px 24px rgba(245,166,35,0.25);
+  }
+
+  .kernel-block .fn-name {
+    color: #d68910;
+    font-family: 'JetBrains Mono', 'Consolas', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+
+  .kernel-block .rule {
+    color: #2c3e50;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .kernel-block .rule .keyword {
+    color: #c2185b;
+    font-weight: 700;
+  }
+
+  .kernel-block .rule .value {
+    color: #2e6cb0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .kernel-pulse {
+    position: absolute;
+    inset: -6px;
+    border-radius: 12px;
+    border: 3px solid #f5a623;
+    opacity: 0;
+    animation: kernelPulse 1.5s ease-out infinite;
+    pointer-events: none;
+  }
+
+  @keyframes kernelPulse {
+    0%   { opacity: 0.7; transform: scale(1); }
+    100% { opacity: 0; transform: scale(1.06); }
+  }
+
+  /* ─────────────────────────────────────────────────────────
+     RAM LANE — 5 folios side by side, all 2 MB, varying used %
+     The lane is wide enough; each folio is 200 px wide with
+     16 px gaps. Total: 5 × 200 + 4 × 16 = 1064 px. Lane inner
+     width is 1280 - 120 (margins) - 32 (lane padding) ≈ 1128 px.
+     So they all fit with ~32 px to spare on each side.
+     ───────────────────────────────────────────────────────── */
+  .ram-row {
+    position: absolute;
+    top: 38px;
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+  }
+
+  .folio {
+    width: 200px;
+    height: 130px;
+    background: #fff5f5;
+    border: 2px solid #e74c3c;
+    border-radius: 8px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 2px 8px rgba(231, 76, 60, 0.15);
+    animation: folioAppear 8s linear infinite;
+    opacity: 0;
+  }
+
+  .folio.f1 { animation-delay: 0.5s; }
+  .folio.f2 { animation-delay: 2s; }
+  .folio.f3 { animation-delay: 3.5s; }
+  .folio.f4 { animation-delay: 5s; }
+  .folio.f5 { animation-delay: 6.5s; }
+
+  .folio-header {
+    color: #c0392b;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-align: center;
+    margin-bottom: 8px;
+  }
+
+  .folio-bar {
+    height: 28px;
+    background: #f9e1de;
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+    margin-bottom: 8px;
+  }
+
+  .folio-used {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.3s;
+  }
+
+  /* Each folio's used portion matches the VMA color */
+  .folio.f1 .folio-used { background: linear-gradient(90deg, #4a90e2, #2e6cb0); }
+  .folio.f2 .folio-used { background: linear-gradient(90deg, #50c878, #2e8b57); }
+  .folio.f3 .folio-used { background: linear-gradient(90deg, #f5a623, #d68910); }
+  .folio.f4 .folio-used { background: linear-gradient(90deg, #b67ff0, #8e44ad); }
+  .folio.f5 .folio-used { background: linear-gradient(90deg, #ff6b9d, #c2185b); }
+
+  /* Used % per folio: actual VMA size / 2048 KB */
+  .folio.f1 .folio-used { width: 1.5%; }   /*  32 KB used  */
+  .folio.f2 .folio-used { width: 6.25%; }  /* 128 KB used  */
+  .folio.f3 .folio-used { width: 12.5%; }  /* 256 KB used  */
+  .folio.f4 .folio-used { width: 25%; }    /* 512 KB used  */
+  .folio.f5 .folio-used { width: 3.1%; }   /*  64 KB used  */
+
+  .folio-stats {
+    display: flex;
+    justify-content: space-between;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+  }
+
+  .folio-stats .used {
+    color: #2e6cb0;
+    font-weight: 700;
+  }
+
+  .folio-stats .waste {
+    color: #c0392b;
+    font-weight: 700;
+  }
+
+  .folio.f1 .folio-stats .used { color: #2e6cb0; }
+  .folio.f2 .folio-stats .used { color: #2e8b57; }
+  .folio.f3 .folio-stats .used { color: #d68910; }
+  .folio.f4 .folio-stats .used { color: #8e44ad; }
+  .folio.f5 .folio-stats .used { color: #c2185b; }
+
+  @keyframes folioAppear {
+    0%, 5%   { opacity: 0; transform: scale(0.5); }
+    10%      { opacity: 1; transform: scale(1.06); }
+    14%, 80% { opacity: 1; transform: scale(1); }
+    100%     { opacity: 0.25; transform: scale(1); }
+  }
+
+  /* ─────────────────────────────────────────────────────────
+     TITLE BANNER — top center, frames the scene
+     ───────────────────────────────────────────────────────── */
+  .title {
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #2c3e50;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    z-index: 20;
+    background: rgba(255, 255, 255, 0.9);
+    padding: 4px 16px;
+    border-radius: 12px;
+    border: 1px solid #e1e8ed;
+  }
+
+  .title .pill {
+    display: inline-block;
+    background: #e74c3c;
+    color: #fff;
+    padding: 2px 10px;
+    border-radius: 8px;
+    font-size: 11px;
+    margin-left: 8px;
+    letter-spacing: 0.05em;
+  }
+</style>
+</head>
+<body>
+
+<div class="stage">
+
+  <!-- Title banner -->
+  <div class="title">
+    Baseline kernel <span class="pill">THP = always</span>
+  </div>
+
+  <!-- ════════════════════ USERSPACE ════════════════════ -->
+  <div class="lane lane-userspace">
+    <div class="lane-label">USERSPACE</div>
+    <div class="lane-sublabel">mmap(MAP_ANONYMOUS) + MADV_HUGEPAGE</div>
+
+    <div class="vma v1">32 KB<span class="vma-label">heap chunk</span></div>
+    <div class="vma v2">128 KB<span class="vma-label">arena</span></div>
+    <div class="vma v3">256 KB<span class="vma-label">buffer</span></div>
+    <div class="vma v4">512 KB<span class="vma-label">cache</span></div>
+    <div class="vma v5">64 KB<span class="vma-label">scratch</span></div>
+  </div>
+
+  <div class="connector connector-1">
+    <div class="connector-label">page fault</div>
+  </div>
+
+  <!-- ════════════════════ KERNEL ════════════════════ -->
+  <div class="lane lane-kernel">
+    <div class="lane-label">KERNEL SPACE</div>
+    <div class="lane-sublabel">mm/memory.c · alloc_anon_folio()</div>
+
+    <div class="kernel-block">
+      <div class="kernel-pulse"></div>
+      <div class="fn-name">thp_vma_allowable_orders()</div>
+      <div class="rule">
+        <span class="keyword">policy</span> = <span class="value">enabled = always</span><br>
+        <span class="keyword">action</span> = pick <span class="value">highest_order(orders)</span><br>
+        <span class="keyword">result</span> = <span class="value">PMD_ORDER (2 MB)</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="connector connector-2">
+    <div class="connector-label">alloc_pages(order = 9)</div>
+  </div>
+
+  <!-- ════════════════════ RAM ════════════════════ -->
+  <div class="lane lane-ram">
+    <div class="lane-label">PHYSICAL RAM</div>
+    <div class="lane-sublabel">5 × 2 MB folios = 10 MB allocated · only 992 KB used</div>
+
+    <div class="ram-row">
+      <div class="folio f1">
+        <div class="folio-header">2 MB FOLIO</div>
+        <div class="folio-bar"><div class="folio-used"></div></div>
+        <div class="folio-stats">
+          <span class="used">used 32 KB</span>
+          <span class="waste">waste 2016 KB</span>
+        </div>
+      </div>
+
+      <div class="folio f2">
+        <div class="folio-header">2 MB FOLIO</div>
+        <div class="folio-bar"><div class="folio-used"></div></div>
+        <div class="folio-stats">
+          <span class="used">used 128 KB</span>
+          <span class="waste">waste 1920 KB</span>
+        </div>
+      </div>
+
+      <div class="folio f3">
+        <div class="folio-header">2 MB FOLIO</div>
+        <div class="folio-bar"><div class="folio-used"></div></div>
+        <div class="folio-stats">
+          <span class="used">used 256 KB</span>
+          <span class="waste">waste 1792 KB</span>
+        </div>
+      </div>
+
+      <div class="folio f4">
+        <div class="folio-header">2 MB FOLIO</div>
+        <div class="folio-bar"><div class="folio-used"></div></div>
+        <div class="folio-stats">
+          <span class="used">used 512 KB</span>
+          <span class="waste">waste 1536 KB</span>
+        </div>
+      </div>
+
+      <div class="folio f5">
+        <div class="folio-header">2 MB FOLIO</div>
+        <div class="folio-bar"><div class="folio-used"></div></div>
+        <div class="folio-stats">
+          <span class="used">used 64 KB</span>
+          <span class="waste">waste 1984 KB</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>
